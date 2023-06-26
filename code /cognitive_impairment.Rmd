@@ -1,0 +1,93 @@
+---
+title: "cognitive_impairment"
+author: "Zuzie"
+date: "2023-06-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+slsr <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/ds_202305.csv")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+SLSR: measures of cognitive impairment 
+
+**Codebook**
+
+*Pre-stroke cognitive impairment*
+
+Pre-stroke dementia: dement_rec (1=No, 2=Yes)
+Pre-stroke depression: rfpdep (1=No, 2=Yes)
+
+*Initial assessment* 
+
+Total AMT mental test score: mtot (0-10)
+Memory score: cogcat (1=cognitively intact (8-10 AMT and 24+ MMSE) 2=cognitively impaired (0-7 AMT and <24 MMSE))
+
+NB: there is no separate MMSE score variable. 
+
+```{r memory scores on initial assessment}
+sum(is.na(slsr$mtot))
+table(slsr$mtot)
+
+sum(is.na(slsr$cogcat))
+table(slsr$cogcat)
+```
+*Follow-ups*
+
+``` {r pivot cognitive scores longer}
+slsr %>% select (id, cogcat, cogcat0.25, cogcat1, cogcat5) %>% 
+pivot_longer (cols = c("cogcat", "cogcat0.25", "cogcat1", "cogcat5"), names_to = "f_u_time", values_to = "cogcat")  %>%
+mutate (cogcat = as.factor(cogcat)) %>% 
+filter (is.na(cogcat) == FALSE) %>% 
+group_by(f_u_time) %>%
+summarise(cogcat1_% = )
+```
+
+
+Calculating total number of cognitively impaired and unimpaired participants at each follow-up point (initial, 3 months, 1 year, 5 years). 
+
+NB in the Douri (2013) paper, Table 1 looks specifically at 0.25 timepoint, having excluded patients who died before 3 months or did not complete cognitive assessment
+
+``` {r absolute number & proportion of cognitively impaired at each timepoint}
+
+cogcat_absolute <- slsr %>% select(id, cogcat, cogcat0.25, cogcat1, cogcat5) %>% 
+summarise (
+cogcat_impaired = sum(cogcat == 1, na.rm = TRUE),
+cogcat_unimpaired = sum(cogcat == 2, na.rm = TRUE),
+cogcat_tot = sum(is.na(cogcat) == FALSE), 
+cogcat_impaired_prop = cogcat_impaired*100/cogcat_tot,
+cogcat_unimpaired_prop = cogcat_unimpaired*100/cogcat_tot,
+cogcat0.25_impaired = sum(cogcat0.25 == 1, na.rm = TRUE),
+cogcat0.25_unimpaired = sum(cogcat0.25 == 2, na.rm = TRUE),
+cogcat0.25_tot = sum(is.na(cogcat0.25) == FALSE), 
+cogcat0.25_impaired_prop = cogcat0.25_impaired*100/cogcat0.25_tot,
+cogcat0.25_unimpaired_prop = cogcat0.25_unimpaired*100/cogcat0.25_tot,
+cogcat1_impaired = sum(cogcat1 == 1, na.rm = TRUE),
+cogcat1_unimpaired = sum(cogcat1 == 2, na.rm = TRUE),
+cogcat1_tot = sum(is.na(cogcat1) == FALSE), 
+cogcat1_impaired_prop = cogcat1_impaired*100/cogcat1_tot,
+cogcat1_unimpaired_prop = cogcat1_unimpaired*100/cogcat1_tot,
+cogcat5_impaired = sum(cogcat5 == 1, na.rm = TRUE),
+cogcat5_unimpaired = sum(cogcat5 == 2, na.rm = TRUE),
+cogcat5_tot = sum(is.na(cogcat5) == FALSE),
+cogcat5_impaired_prop = cogcat5_impaired*100/cogcat5_tot,
+cogcat5_unimpaired_prop = cogcat5_unimpaired*100/cogcat5_tot) %>% view()
+
+
+```
+
+
+
+
+
+
+view()
+
+sum(slsr$cogcat, na.rm = TRUE)
+
+ggplot (aes(x = cogcat, y = count(cogcat)/sum(cogcat))) + geom_bar() + facet_wrap(~f_u_time)
+
+
+

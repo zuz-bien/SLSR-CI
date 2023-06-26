@@ -1,0 +1,76 @@
+---
+title: "Demographic data"
+author: "Zuzie"
+date: "2023-06-26"
+output: word_document
+---
+
+Loading the packages and data:
+
+```{r setup, include = FALSE}
+library(tidyverse)
+slsr <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/ds_202305.csv")
+
+```
+
+---
+Demographic data 
+
+1. Age 
+
+Outliers: there are 4 values <17 (including 2 values which are negative). 
+There are also 3 values above 110 (including 2 >200 and 1 >900). 
+
+This can be seen on the boxplot below: 
+
+```{r boxplot, echo = FALSE}
+slsr  %>% ggplot (aes(x = age)) + geom_boxplot() 
+```
+To remove biologically implausible ages:
+```{r age outliers, echo= FALSE}
+#to remove biologically implausible ages 
+slsr <- slsr %>% mutate(age = ifelse((age < 0 | age >110), NA,  age))
+```
+  
+Repeating the boxplot now doesn't throw out an error:
+```{r boxplot repeat, echo = FALSE}
+slsr  %>% ggplot (aes(x = age)) + geom_boxplot() 
+```
+
+2. Ethnicity 
+
+`r sum(is.na(slsr$eth6cat))` patients were missing Ethnicity data. 
+
+3. Employment 
+
+`r sum(is.na(slsr$socat))` patients were missing Social Class data.
+`r sum(is.na(slsr$employ))` patients were missing Employment data.
+
+Employment status: 
+1=full time  
+2=part time 
+3=unemployed and looking 
+4=unable due to disability/ ill health 
+5=retired 
+6=carer 
+8=student
+
+```{r employment}
+table(slsr$employ)
+```
+4. Scan type 
+0=None 1=CT 2=MRI 3=CT & MRI 4=CT or MRI
+
+```{r scan type}
+table(slsr$scantyp)
+```
+
+5. Assistance pre-stroke 
+
+1=No 2=Yes
+
+```{r pre-stroke assistance}
+print(sum(is.na(slsr$assist)))
+table(slsr$assist)
+```
+
