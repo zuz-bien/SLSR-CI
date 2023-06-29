@@ -2,79 +2,324 @@
 title: "cognitive_impairment"
 author: "Zuzie"
 date: "2023-06-26"
-output: html_document
+output:
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(scales)
 slsr <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/ds_202305.csv")
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 SLSR: measures of cognitive impairment 
 
-**Codebook**
+#Codebook*
 
-*Pre-stroke cognitive impairment*
+##Pre-stroke cognitive impairment
 
-Pre-stroke dementia: dement_rec (1=No, 2=Yes)
-Pre-stroke depression: rfpdep (1=No, 2=Yes)
+dement_rec: pre-stroke dementia (1=No, 2=Yes)
+rfpdep: pre-stroke depression:  (1=No, 2=Yes)
 
-*Initial assessment* 
+##Initial assessment
 
-Total AMT mental test score: mtot (0-10)
-Memory score: cogcat (1=cognitively intact (8-10 AMT and 24+ MMSE) 2=cognitively impaired (0-7 AMT and <24 MMSE))
+Consciousness scores
+glas_cs: GCS (/15)
+nih1a:  NIHSS level of consciousness (0=alert/responsive 1=not alert but arousable by stimulation 2=not alret but requires repeated stimulation 3=unresponsive)
 
-NB: there is no separate MMSE score variable. 
+mtot: Total AMT mental test score:  (0-10)
+cogcat: Memory score:  (1=cognitively intact (8-10 AMT and 24+ MMSE) 2=cognitively impaired (0-7 AMT and <24 MMSE))
+      NB: there is no separate MMSE score variable. 
+
+NIHS cognitive scores: 
+nih9: best language: 	(0=normal 1=mild aphasia 2=severe aphasia 3=mute)
+nih10: dysarthria (speech disorder of poor articulation): (0=normal 1=mild dysarthria 2=severe dysarthria 3=intubated)
+nih11: extinction and inattention (neglect): 	(0=normal 1=inattention or extiction to stimulation in sensory modalities 2=profound inattention or extinction to modality)
+
+
+##Follow-ups
+mtndn_3m: Reason memory test not done
+
+spechcur3m - Slurred speech/problems talking as unable to articulate words correctly	1=No, 2=Yes
+
+
+#Analysis
+
+##Missingness
+
+First, need to figure out how many patients actually had memory scores done on each timepoint. 
+
+- Initial Assessment
+
+At initial assessment, `r sum(is.na(slsr$mtot) == FALSE)` had a recorded 'mtot' (AMTS) and `sum(is.na(slsr$cogcat) == FALSE)` had a recorded cogcat (either AMTS or MMSE). 
+
 
 ```{r memory scores on initial assessment}
-sum(is.na(slsr$mtot))
-table(slsr$mtot)
+#number of patients with complete observations for mtot on initial assessment
+n_mtot <- sum(is.na(slsr$mtot) == FALSE)
 
-sum(is.na(slsr$cogcat))
-table(slsr$cogcat)
+#number of patients with complete observations for cogcat on initial assessment
+n_cogcat <- sum(is.na(slsr$cogcat) == FALSE)
 ```
-*Follow-ups*
+- 3 months 
 
-``` {r pivot cognitive scores longer}
+At 3 months, `r sum(is.na(slsr$mtot0.25) == FALSE)` had a recorded 'mtot' (AMTS) and `sum(is.na(slsr$cogcat0.25) == FALSE)` had a recorded cogcat (either AMTS or MMSE). 
+
+
+``` {r cognitive scores at 3m}
+#create mtot0.25 (AMTS score at 3 months) 
+slsr <- slsr %>% mutate (mtot0.25 = mt1_0.25 + mt2_0.25 + mt3_0.25 + mt4_0.25 + mt5_0.25 + mt6_0.25 + mt7_0.25 + mt8_0.25 +mt9_0.25 + mt10_0.25)
+
+#number of patients with complete observations for mtot at 3mo
+n_mtot0.25 <- sum(is.na(slsr$mtot0.25) == FALSE)
+
+#number of patients with complete observations for cogcat at 3mo
+n_cogcat0.25<- sum(is.na(slsr$cogcat0.25) == FALSE)
+```
+
+- 1 year
+
+``` {r cognitive scores at 1y}
+#create mtot1 (AMTS score at 1 year) 
+slsr <- slsr %>% mutate (mtot1 = mt1_1 + mt2_1 + mt3_1 + mt4_1 + mt5_1 + mt6_1 + mt7_1 + mt8_1 +mt9_1 + mt10_1)
+
+#number of patients with complete observations for mtot at 1y
+n_mtot1 <- sum(is.na(slsr$mtot1) == FALSE)
+#number of patients with complete observations for cogcat at 1y
+n_cogcat1 <-sum(is.na(slsr$cogcat1) == FALSE)
+```
+
+- 5 years 
+
+``` {r cognitive scores at 5y}
+#create mtot1 (AMTS score at 5 year) 
+
+#NB mt5_5 was misnamed as mt5_1.1
+slsr <- slsr %>% mutate(mt5_5 = mt5_1.1) %>% mutate (mtot5 = mt1_5 + mt2_5 + mt3_5 + mt4_5 + mt5_5 + mt6_5 + mt7_5 + mt8_5 +mt9_5 + mt10_5)
+
+#number of patients with complete observations for mtot at 5y
+n_mtot5 <- sum(is.na(slsr$mtot5) == FALSE)
+
+#number of patients with complete observations for cogcat at 5y
+n_cogcat5 <- sum(is.na(slsr$cogcat5) == FALSE)
+```
+
+Create a table to summarise the absolute number & proportion of patients with non-missing observations at each timepoint. 
+
+``` {r n cognitive scores, echo = TRUE, results = "asis"}
+library(kableExtra)
+
+#create data frame with the number of people who completed cognitive assessment at each time point
+n_mtots <- c(n_mtot, n_mtot0.25, n_mtot1, n_mtot5)
+n_cogcats <- c( n_cogcat, n_cogcat0.25, n_cogcat1, n_cogcat5)
+
+n_cognitive_scores <- rbind(n_mtots, n_cogcats) %>% as.data.frame()
+names(n_cognitive_scores) = c("t0", "t0.25", "t1", "t5")
+
+#calculate the total number of people who completed interview at each timepoint 
+#total number of follow-ups at each timepoint 
+n0 <- sum(!is.na(slsr$id))
+# n3m<- sum(!is.na(slsr$dtint0.25)) - missing - awaiting data from Hatem. dummy variable (approx) used instead:
+n0.25<- sum(!is.na(slsr$reside0.25))
+# n1<- sum(!is.na(slsr$dtint1)) - missing - awaiting data from Hatem. dummy variable (approx) used instead:
+n1<- sum(!is.na(slsr$reside1))
+n5 <- sum(!is.na(slsr$dtint5))
+
+#add completion rate (denominator = n patients who completed interview at each follow-up time)
+n_cognitive_scores <- n_cognitive_scores %>% 
+  mutate (t0_completion_rate = (t0*100/n0), t0.25_completion_rate = (t0.25*100/n0.25), t1_completion_rate = (t1*100/n1), t5_completion_rate = (t5*100/n5)) %>% 
+  mutate(across(c(t0_completion_rate,t0.25_completion_rate, t1_completion_rate, t5_completion_rate),round, 2))  %>%
+  select(t0, t0_completion_rate, t0.25, t0.25_completion_rate, t1, t1_completion_rate, t5, t5_completion_rate) %>%
+  view() 
+
+#create a nice table of this 
+n_cognitive_scores %>% kable(caption = "Table 1: Number of patients with non-missing cognitive scores at each follow-up point") %>% kable_styling(bootstrap_options = "striped", full_width = FALSE)
+```
+
+Now, we can assess the patients whose scores were missing. 
+
+Let's check how many patients have the 'mtndn' variable completed. 
+(1=refused, 2=language barrier, 3=aphasia, 4=too cognitively impaired) 
+
+```{r }
+#total non_completions
+mtot_incomplete <- n0 - n_mtot 
+mtot0.25_incomplete <- n0.25 - n_mtot0.25
+mtot1_incomplete <- n1 - n_mtot1
+mtot5_incomplete <-n5 - n_mtot5
+
+cogcat_incomplete <- n0 - n_cogcat
+cogcat0.25_incomplete <- n0.25 - n_cogcat0.25
+cogcat1_incomplete <- n1 - n_cogcat1
+cogcat5_incomplete <- n5 - n_cogcat5
+
+n_cognitive_scores_incomplete <- rbind(c(mtot_incomplete, mtot0.25_incomplete, mtot1_incomplete, mtot5_incomplete), c(cogcat_incomplete,cogcat0.25_incomplete,cogcat1_incomplete, cogcat5_incomplete)) %>% as.data.frame() 
+
+colnames(n_cognitive_scores_incomplete) <- c("t0", "t0.25", "t1", "t5")
+
+
+#reasons for not completing - note that this was not done as initial assessment. Will leave that one for now. 
+sum(!is.na(slsr$mtndn_0.25))
+table (slsr$mtndn_0.25)
+sum(!is.na(slsr$mtndn_1))
+table(slsr$mtndn_1)
+sum(!is.na(slsr$mtndn_5))
+table(slsr$mtndn_5)
+
+```
+*Figuring out reasons patients did not complete cognitive assessment* 
+
+Step 1. Create a new variable - 'why_mtndn'
+Step 2. For those with completed 'mtndn', use these values
+Step 3. For those with missing 'mtndn', see if you can find other sources of information. 
+
+```{r }
+#Step 1 and 2
+slsr <- slsr %>% mutate (why_mtndn0.25 = ifelse (!is.na(mtndn_0.25), mtndn_0.25, NA))
+
+#Step 3 
+## Speech disorder (coded as 3)
+
+#sum(!is.na(slsr$spechcur0.25)) - not currently available - requested additional data from Hatem 
+#slsr <- slsr %>% mutate (why_mtndn0.25 = ifelse (!is.na(mtndn_0.25), mtndn_0.25, NA))- not currently available - requested additional data from Hatem 
+
+
+##Language barrier 
+
+##Cognitive impairment
+
+##Late registration - add once additional data from Hatem is available (stroke date - initial interview date) 
+```
+ 
+
+ 
+ ##Cognitive scores 
+ 
+ First, we will assign all of the people whose reason for non-completion was 'too cognitively impaired' a value of 2 ('cognitively impaired') on the cogcat variable. 
+```{r adding mtndn derived insights into cogcat}
+
+#update the cogcat variable to include those with mtndn value = 4 (n = 77) as 2 (cognitively impaired)
+
+#test how many non-NA observations there are in cogcat0.25
+sum(!is.na(slsr$cogcat0.25))
+
+#this was going wrong because essentially it wasn't matching anything to the NAs. So when mtndn was NA, it would just 
+#omit this (instead of assigning cogcat value to cogcat_new)
+#slsr %>% mutate (cogcat0.25new = ifelse(mtndn_0.25 == 4, 2, cogcat0.25)) %>% select (id, mtndn_0.25, cogcat0.25, cogcat0.25new) %>% view()
+
+
+#NB number of complete cogcat0.25 increased by 76 (not 77) because one person already had cogcat0.25 (as well as mtndn_0.25)
+slsr <- slsr %>%
+  mutate(cogcat0.25 = ifelse(is.na(mtndn_0.25), cogcat0.25, ifelse(mtndn_0.25 == 4, 2, cogcat0.25)))
+
+
+
+
+```
+ 
+ Then, we will account for all of those who died before they had a chance to complete their 3m assessment. 
+ 
+ Everyone (n = 7921) has a survival status (sstat). 
+ (0=alive (no record of death) 1=dead)
+ 
+``` {r death before 3mo assessment}
+ 
+#4771 patients have a survival time recorded 
+sum(!is.na(slsr$surv))
+slsr$surv <- ifelse(slsr$surv < 0, abs(slsr$surv), slsr$surv)
+
+#3128 are alive and 4793 are dead - so 22 are dead but we don't have a survival time 
+#can't calculate it because I don't have stroke date 
+sum(slsr$sstat == 0) 
+sum(slsr$sstat == 1)
+
+
+slsr %>% filter (sstat ==1 & (is.na(surv) == TRUE)) %>% select (id, sstat, surv, dodpi_d, dodpi_m, dodpi_y) %>% view()
+
+**PICK UP HERE TOMO**
+ 
+sum(!is.na(slsr$sstat))
+ 
+ 
+ 
+ 
+ 
+ {r pivot cognitive scores longer}
 slsr %>% select (id, cogcat, cogcat0.25, cogcat1, cogcat5) %>% 
 pivot_longer (cols = c("cogcat", "cogcat0.25", "cogcat1", "cogcat5"), names_to = "f_u_time", values_to = "cogcat")  %>%
 mutate (cogcat = as.factor(cogcat)) %>% 
 filter (is.na(cogcat) == FALSE) %>% 
 group_by(f_u_time) %>%
 summarise(cogcat1_% = )
-```
+
 
 
 Calculating total number of cognitively impaired and unimpaired participants at each follow-up point (initial, 3 months, 1 year, 5 years). 
 
 NB in the Douri (2013) paper, Table 1 looks specifically at 0.25 timepoint, having excluded patients who died before 3 months or did not complete cognitive assessment
 
+Their method: 
+
+The prevalence of cognitive impairment was stratified by sociodemography, past medical history of vascular risk factor, and stroke subtypes. 
+
+Prevalence ratios (PRs) between patient groups were used for comparison. 
+
+All estimates were applied to the standard European population using the direct method with 4 age groups 0 to 64, 65 to 74, 75 to 84, and 85+. Ninety-five percent confidence intervals of age-standardized rates and ratios were calculated using the percentile bootstrap technique with 10 000 replications. 
+
+Multivariate analyses, using a European age-standardized Poisson regression model with a robust error variance, were used to assess whether changes in prevalence ratios at each time point could be explained by differences in sociodemographic, past medical history, case-mix stroke severity, or stroke subtype. 
+
+Trends in the prevalence rates of cognitive impairment were analyzed using joinpoint regression. The joinpoint permutation test was used to select the optimal model that best fitted the data and tests of significance use a Monte Carlo permutation method. The average annual percentage change was used to quantify the change in prevalence rates over time.
+
+Kaplan–Meier estimates were used to model survival and to measure the cumulative survival and 95% CI at 1, 5, 10, and 15 years after stroke according to the cognitive status at 3 month after stroke. Differences in survival according to cognitive status were compared with the multivariate Cox proportional hazards model. The assumption for proportionality of the mortality hazards was assessed by visual inspection of cumulative hazard logarithm plots. 
+
+All multivariate models were adjusted for sociodemographic, past medical history, disability, stroke severity, and Oxfordshire Community Stroke Project stoke subtype. 
+
+To assess the robustness of the results, we conducted sensitivity analyses with imputation of missing data as described in our previous study for stroke outcomes on SLSR (1995–2005).10 Similarly, when assessing trends over time of all imputation methods, although overall rates were altered, the trends over time closely followed those in the observed and complete case analysis. The observed data analysis was used for the present study. Statistical analyses and graphics were performed using STATA17 and JoinPoint program.18
+
+Among stroke survivors, the age-standardized prevalence of cognitive impairment ranged from 24% (95% CI, 21.2–27.8) at 3 months, 22% (95% CI, 17.4–26.8) at 5 years, and 18% (95% CI, 8.9–26.6) at 10 years to 21% (95% CI, 3.6–63.8) at 14 years after stroke.
+
 ``` {r absolute number & proportion of cognitively impaired at each timepoint}
 
-cogcat_absolute <- slsr %>% select(id, cogcat, cogcat0.25, cogcat1, cogcat5) %>% 
+#1=cognitively intact (8-10 AMT and 24+ MMSE) 2=cognitively impaired (0-7 AMT and <24 MMSE)
+
+cogcat <- slsr %>% select(id, cogcat, cogcat0.25, cogcat1, cogcat5) %>% 
 summarise (
-cogcat_impaired = sum(cogcat == 1, na.rm = TRUE),
-cogcat_unimpaired = sum(cogcat == 2, na.rm = TRUE),
+cogcat_impaired = sum(cogcat == 2, na.rm = TRUE),
+cogcat_unimpaired = sum(cogcat == 1, na.rm = TRUE),
 cogcat_tot = sum(is.na(cogcat) == FALSE), 
 cogcat_impaired_prop = cogcat_impaired*100/cogcat_tot,
 cogcat_unimpaired_prop = cogcat_unimpaired*100/cogcat_tot,
-cogcat0.25_impaired = sum(cogcat0.25 == 1, na.rm = TRUE),
-cogcat0.25_unimpaired = sum(cogcat0.25 == 2, na.rm = TRUE),
+cogcat0.25_impaired = sum(cogcat0.25 == 2, na.rm = TRUE),
+cogcat0.25_unimpaired = sum(cogcat0.25 == 1, na.rm = TRUE),
 cogcat0.25_tot = sum(is.na(cogcat0.25) == FALSE), 
 cogcat0.25_impaired_prop = cogcat0.25_impaired*100/cogcat0.25_tot,
 cogcat0.25_unimpaired_prop = cogcat0.25_unimpaired*100/cogcat0.25_tot,
-cogcat1_impaired = sum(cogcat1 == 1, na.rm = TRUE),
-cogcat1_unimpaired = sum(cogcat1 == 2, na.rm = TRUE),
+cogcat1_impaired = sum(cogcat1 == 2, na.rm = TRUE),
+cogcat1_unimpaired = sum(cogcat1 == 1, na.rm = TRUE),
 cogcat1_tot = sum(is.na(cogcat1) == FALSE), 
 cogcat1_impaired_prop = cogcat1_impaired*100/cogcat1_tot,
 cogcat1_unimpaired_prop = cogcat1_unimpaired*100/cogcat1_tot,
-cogcat5_impaired = sum(cogcat5 == 1, na.rm = TRUE),
-cogcat5_unimpaired = sum(cogcat5 == 2, na.rm = TRUE),
+cogcat5_impaired = sum(cogcat5 == 2, na.rm = TRUE),
+cogcat5_unimpaired = sum(cogcat5 == 1, na.rm = TRUE),
 cogcat5_tot = sum(is.na(cogcat5) == FALSE),
 cogcat5_impaired_prop = cogcat5_impaired*100/cogcat5_tot,
 cogcat5_unimpaired_prop = cogcat5_unimpaired*100/cogcat5_tot) %>% view()
 
+print(cogcat)
+```
+
+**Sorting out patients who need to be excluded**
+
+Exclude those with pre-existing dementia:
+
+1=No, 2=Yes
+
+``` {r pre-existing dementia}
+sum(slsr$dement_rec == 2, na.rm = TRUE)
+#there are 224 patients with dementia (dement_rec == 2)
+
+slsr <- slsr %>% mutate (dement_rec = as.factor(dement_rec)) %>% filter (is.na(dement_rec) == TRUE | dement_rec != 2)
 
 ```
 
