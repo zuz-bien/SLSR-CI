@@ -214,7 +214,7 @@ slsr <- slsr %>%
   mutate(cogcat0.25 = ifelse(is.na(mtndn_0.25), cogcat0.25, ifelse(mtndn_0.25 == 4, 2, cogcat0.25)))
 
 
-
+sum(!is.na(slsr$mtndn_0.25))
 
 ```
  
@@ -229,7 +229,7 @@ slsr <- slsr %>%
 sum(!is.na(slsr$surv))
 slsr$surv <- ifelse(slsr$surv < 0, abs(slsr$surv), slsr$surv)
 
-#3128 are alive and 4793 are dead - so 22 are dead but we don't have a survival time 
+#3128 are alive (0) and 4793 are dead (1) - so 22 are dead but we don't have a survival time 
 #can't calculate it because I don't have stroke date 
 sum(slsr$sstat == 0) 
 sum(slsr$sstat == 1)
@@ -237,9 +237,65 @@ sum(slsr$sstat == 1)
 
 slsr %>% filter (sstat ==1 & (is.na(surv) == TRUE)) %>% select (id, sstat, surv, dodpi_d, dodpi_m, dodpi_y) %>% view()
 
-**PICK UP HERE TOMO**
+#identify patients who died before the 3 month assessment (surv < 0.25)
+slsr %>% filter (surv <0.25) %>% nrow()
+
+#are these the same patients who don't have cogcat0.25 scores? 
+
+slsr %>% filter (surv<0.25 & (is.na(cogcat0.25) == TRUE)) %>% nrow() view()
+
+
+
  
-sum(!is.na(slsr$sstat))
+```
+ 
+ 1674 patients died before 3 months. 2 of them (ID 2237 and 3755) completed the '3 mo' follow-up before they died, even though they died 55 days and 63 daya after their stroke, respectively. We will include these. 
+ 
+ Task: to check the window of 3 month follow-up. 
+ 
+ 
+ Out of 5046 that did not complete 3-month follow-up (cogcat0.25 missing), 1672 died before they could be assessed, 493 had a reason given (including 76 that were too impaired to complete the assessment, and their cogcat scores were updated accordingly). 
+ 
+
+```{r}
+
+without_cogcat <- slsr %>% filter (is.na(cogcat0.25) == TRUE)  #5046
+without_cognitive_score <- slsr %>% filter (is.na(cogcat0.25) == TRUE & is.na(mtot0.25) == TRUE) #5041
+
+died_before_3mfu <- slsr %>% filter (surv<0.25 & (is.na(cogcat0.25) == TRUE)) #1672   #this is not quite right - will need updating by subtracting those without interview date, not those without cogcat, but let's roll with it for now 
+reason_given <-  slsr %>% filter (is.na(mtndn_0.25) == FALSE) #493
+
+ 
+#let's roll with this for now (though it should be 2881 not 2884)
+unaccounted_for <- slsr %>% filter (is.na(cogcat0.25) == TRUE & is.na(mtot0.25) & (surv >0.25 |is.na(surv) == TRUE) & (is.na(mtndn_0.25) == TRUE)) #2877
+
+
+
+
+slsr %>% filter (slsr %>% filter (is.na(cogcat0.25) == TRUE & (surv <0.25) & (is.na(mtndn_0.25) == FALSE))  %>% nrow()
+                 
+                
+```
+Out of 7921 patients,  ___ died before completing their 3-month follow-up,  ___ were not eligible because of late registration, and ___ were unable to complete their follow-up because of severe speech impairment or language barrier. Further ___ refused to complete the assessment. We also excluded ___ patients whose stroke was less than 3 months before the data extraction date (26/06/2023)
+
+Excluding  ____  with pre-existing diagnosis of dementia, ___ out of ____ eligible had cognitive scores available at 3 month follow-up. 
+
+Let's try to reproduce Abdel's results
+```{r}
+
+slsr_pre_2011 <- slsr %>% filter (strk_y >= 2011)
+
+
+
+
+
+
+
+
+```
+
+ 
+ 
  
  
  
