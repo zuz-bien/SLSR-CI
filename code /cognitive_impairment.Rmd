@@ -10,7 +10,19 @@ output:
 library(tidyverse)
 library(scales)
 slsr <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/ds_202305.csv")
-knitr::opts_chunk$set(echo = TRUE)
+
+slsr_1 <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/ds_202305_2.csv")
+sum(!is.na(slsr_1$dtint))
+sum(!is.na(slsr_1$dtint0.25))
+sum(!is.na(slsr_1$dtint1))
+sum(!is.na(slsr_1$dtint5))
+
+
+sum(!is.na(slsr_1$reside0.25))
+sum(!is.na(slsr_1$reside1))
+sum(!is.na(slsr_1$reside5))
+
+
 ```
 
 SLSR: measures of cognitive impairment 
@@ -181,7 +193,7 @@ slsr <- slsr %>% mutate (why_mtndn0.25 = ifelse (!is.na(mtndn_0.25), mtndn_0.25,
 #Step 3 
 ## Speech disorder (coded as 3)
 
-#sum(!is.na(slsr$spechcur0.25)) - not currently available - requested additional data from Hatem 
+sum(!is.na(slsr$spehcur0.25)) - not currently available - requested additional data from Hatem 
 #slsr <- slsr %>% mutate (why_mtndn0.25 = ifelse (!is.na(mtndn_0.25), mtndn_0.25, NA))- not currently available - requested additional data from Hatem 
 
 
