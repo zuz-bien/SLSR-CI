@@ -126,8 +126,9 @@ slsr_age$esp_p <- esp_age_cat$p
 slsr_age %>% mutate (age_s_cog0p = (cog0p * esp)/100000,
                      age_s_cog0.25p = (cog0.25p * esp)/100000,
                      age_s_cog1p = (cog1p * esp)/100000,
-                     age_s_cog5p = (cog5p * esp)/100000) %>% view()
-            summarise(age_s_cog0p = mean(age_s_cog0p), age_s_cog0.25p = mean(age_s_cog0.25p), age_s_cog1p = mean(age_s_cog1p), age_s_cog5p = mean(age_s_cog5p) )
+                     age_s_cog5p = (cog5p * esp)/100000) %>%
+            summarise(age_s_cog0p = mean(age_s_cog0p), age_s_cog0.25p = mean(age_s_cog0.25p), age_s_cog1p = mean(age_s_cog1p), age_s_cog5p = mean(age_s_cog5p) ) 
+         
 
 #
 
@@ -135,10 +136,60 @@ slsr_age %>% mutate (age_s_cog0p = (cog0p * esp)/100000,
 #All estimates were applied to the standard European population using the direct method with 4 age groups
 #0 to 64, 65 to 74, 75 to 84, and 85+. Ninety-five percent confidence intervals of age-standardized rates and ratios 
 #were calculated using the percentile bootstrap technique with 10 000 replications.
+            
+#Age-standardised only for *comparing* prevalence between groups. 
 
 ## -------------------------------------------------------------------------------------------------------------------------
 
+#Sankey diagram 
+library(ggsankey)
+library(viridis)
+            
+            
+#NB survival status sstat 0=alive (no record of death) 1=dead **Data library says 2=dead but this is incorrect**
+            
+            
+test <- slsr %>%
+  select(id, surv, sstat, dtint0.25, dtint1, dtint5, cog, cog0.25, cog1, cog5) %>% 
+  mutate(cog = case_when(
+    cog == 1 ~ "No PSCI", 
+    cog == 2 ~ "PSCI"),
+  
+  cog0.25 = case_when(
+    cog0.25 == 1 ~ "No PSCI", 
+    cog0.25 == 2 ~ "PSCI",
+    is.na(dtint0.25) & surv < 0.5 ~ "Dead"), #label those who died before 3m interview as dead),
+  
+  cog1 = case_when(
+    cog1 == 1 ~ "No PSCI", 
+    cog1 == 2 ~ "PSCI",
+    surv < 1.5 & is.na(dtint1) ~ "Dead"),
+    
+  cog5 = case_when(
+      cog5 == 1 ~ "No PSCI", 
+      cog5 == 2 ~ "PSCI",
+      is.na(dtint5) & surv < 5.5 ~ "Dead")
+  
+  ) %>% 
+  rename ("7 days" = cog, "3 months" = cog0.25, "1 year" = cog1, "5 years" = cog5) %>% 
+  ggsankey::make_long("7 days", "3 months", "1 year", "5 years")
 
+ggplot(test, aes(x = x, next_x = next_x, 
+                node = node, next_node = next_node, 
+                fill = factor(node), 
+                label = node
+                #label = paste0(node," n=", n)
+  geom_sankey(flow.alpha = 0.5, node.color = "grey50") +
+  geom_sankey_label(size = 3, color = "white", fill = "gray40") +
+  #geom_sankey_text(aes(label = count), size = 3.5, vjust = -1.5, check_overlap = TRUE) +
+  scale_fill_viridis_d(alpha = 0.5) +
+  theme_sankey(base_size = 14) +
+  labs(x = "Follow-up time") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = .5), 
+        axis.title = element_text(size=14))
+            
+#export image 
+ggsave("sankey_deaths.tiff", units="in", width=5, height=4, dpi=300, compression = 'lzw')
 
-
-
+#we need the following info in the data-frame - 
