@@ -1,4 +1,15 @@
 #1. COGNITIVE IMPAIRMENT POST-STROKE: ANALYSIS  
+#Table of contents:
+#1. Table 1
+#2 Prevalence of cognitive impairment after stroke 
+#3. Incidence 
+#4. Recovery 
+#5. Sankey diagram 
+#6. Survival 
+#7. Risk factors
+#8. Mixed effects model (trajectory) 
+#9. Predictors of recovery
+
 
 ## -------------------------------------------------------------------------------------------------------------------------
 #1 Table 1 
@@ -131,198 +142,205 @@ table1(~ sex + age + eth6cat + socat + educat + rfpdep + bi0.25 + frcat0.25 + an
 ## -------------------------------------------------------------------------------------------------------------------------
 #2 Prevalence of cognitive impairment after stroke 
 
-#2.1 Crude prevalence rates of cognitive impairment at 7 days, 3 months, 5 years, and 15 years 
+#2.1 Calculate crude prevalence rates of cognitive impairment at 7 days, 3 months, 5 years, and 15 years 
 #cog 1=intact 2=impaired 
 
 #cog0n = number of cognitively impaired at initial assessment
 #cog0p = proportion of cognitively impaired at initial assessment, of those who completed the assessment
 
 crude_rate <- slsr %>% summarise (cog0n = sum(cog == 2, na.rm = TRUE), n0 = sum(!is.na(dtint)), cog0p = round(cog0n*100/n0,2),
-                    cog0.25n = sum(cog0.25 == 2, na.rm = TRUE), n0.25 = sum(!is.na(dtint0.25)), cog0.25p = round(cog0.25n*100/n0.25,2),
-                    cog1n = sum(cog1 == 2, na.rm = TRUE), n1 = sum(!is.na(dtint1)), cog1p = round(cog1n*100/n1,2),
-                    cog5n = sum(cog5 == 2, na.rm = TRUE), n5 = sum(!is.na(dtint5)), cog5p = round(cog5n*100/n5,2)
-                    ) 
+                                  cog0.25n = sum(cog0.25 == 2, na.rm = TRUE), n0.25 = sum(!is.na(dtint0.25)), cog0.25p = round(cog0.25n*100/n0.25,2),
+                                  cog1n = sum(cog1 == 2, na.rm = TRUE), n1 = sum(!is.na(dtint1)), cog1p = round(cog1n*100/n1,2),
+                                  cog5n = sum(cog5 == 2, na.rm = TRUE), n5 = sum(!is.na(dtint5)), cog5p = round(cog5n*100/n5,2)
+) 
 
 write.csv(crude_rate, "crude_rate.csv")
+#note you can also use bootstrapping for the confidence intervals on the crude rate (idk where the code for this has gone)
 
-#2.2 Age-standardised prevalence
-
-#create age categories (at each timepoint)
-slsr <- slsr %>% mutate (age_cat = case_when(
-                  age < 65 ~ "under 65",
-                  age >= 65 & age <75 ~ "65-74", 
-                  age >=75 & age < 85 ~ "75-84",
-                  age>= 85 ~ "85+"), 
-                  
-                  age_cat0.25 = case_when(
-                    age+0.25 < 65 ~ "under 65",
-                    age+0.25 >= 65 & age+0.25 <75 ~ "65-74", 
-                    age+0.25 >=75 & age+0.25 < 85 ~ "75-84",
-                    age+0.25>= 85 ~ "85+"), 
-                  
-                  age_cat1 = case_when(
-                    age+1 < 65 ~ "under 65",
-                    age+1 >= 65 & age+1 <75 ~ "65-74", 
-                    age+1 >=75 & age+1 < 85 ~ "75-84",
-                    age+1>= 85 ~ "85+"), 
-                  
-                  age_cat5 = case_when(
-                    age+5 < 65 ~ "under 65",
-                    age+5 >= 65 & age+5 <75 ~ "65-74", 
-                    age+5 >=75 & age+5 < 85 ~ "75-84",
-                    age+5>= 85 ~ "85+"), 
-                  )
-
-slsr$age_cat <- factor(slsr$age_cat, levels = c("under 65", "65-74", "75-84", "85+"))
-slsr$age_cat0.25 <- factor(slsr$age_cat0.25, levels = c("under 65", "65-74", "75-84", "85+"))
-slsr$age_cat1 <- factor(slsr$age_cat1, levels = c("under 65", "65-74", "75-84", "85+"))
-slsr$age_cat5 <- factor(slsr$age_cat5, levels = c("under 65", "65-74", "75-84", "85+"))
-
-#table(slsr$age_cat)
-#table(slsr$age_cat0.25)
-#table(slsr$age_cat1)
-#table(slsr$age_cat5)
+#2.2 Prepare the data-frame with the shifting age-categories 
 #NB I've created shifting categories to account for the fact that patients age
 
-#create a summary df with n cognitively impaired by age 
- 
-slsr_age_0<- slsr %>% group_by(age_cat) %>% summarise (cog0n = sum(cog == 2, na.rm = TRUE), n0 = sum(!is.na(dtint)), cog0p = cog0n/n0)
-slsr_age_0.25 <- slsr %>% group_by(age_cat0.25) %>% summarise (cog0.25n = sum(cog0.25 == 2, na.rm = TRUE), n0.25 = sum(!is.na(dtint0.25)), cog0.25p = cog0.25n/n0.25) 
-slsr_age_1 <- slsr %>% group_by(age_cat1) %>% summarise (cog1n = sum(cog1 == 2, na.rm = TRUE), n1 = sum(!is.na(dtint1)), cog1p = cog1n/n1)
-slsr_age_5 <- slsr %>% group_by(age_cat5) %>% summarise (cog5n = sum(cog5 == 2, na.rm = TRUE), n5 = sum(!is.na(dtint5)), cog5p = cog5n/n5) 
-
-slsr_age <- cbind(slsr_age_0, slsr_age_0.25,slsr_age_1, slsr_age_5)
-
-
-#Method 1: make my own standard population by adding the age groups at each timepoint 
-slsr_age <- slsr_age %>% mutate (pop_stand = n0+n0.25+n1+n5)
-
-#Summary table with age-standardised prevalence according to bespoke standard population 
-slsr_age_sp <- slsr_age %>% mutate(stnd_cog0n = cog0p*pop_stand,
-                    stnd_cog0.25n = cog0.25p*pop_stand,
-                    stnd_cog1n = cog1p*pop_stand,
-                    stnd_cog5n = cog5p*pop_stand) %>%
-            summarise(stnd_cog0n = sum(stnd_cog0n), 
-                    stnd_cog0.25n = sum(stnd_cog0.25n), 
-                     stnd_cog1n = sum(stnd_cog1n), 
-                     stnd_cog5n = sum(stnd_cog5n)) %>% 
-            mutate (stnd_cog0p = stnd_cog0n/sum(slsr_age$pop_stand), 
-                    stnd_cog0.25p = stnd_cog0.25n/sum(slsr_age$pop_stand),
-                    stnd_cog1p = stnd_cog1n/sum(slsr_age$pop_stand),
-                    stnd_cog5p = stnd_cog5n/sum(slsr_age$pop_stand))
-
-
-#Method 2: use ESP 
-esp_age_cat <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/esp_age_cat.csv")
-slsr_age$esp <- esp_age_cat$n
-
-#Summary table with age-standardised prevalence according to ESP 
-slsr_age_esp <- slsr_age %>% mutate(stnd_cog0n = cog0p*esp,
-                    stnd_cog0.25n = cog0.25p*esp,
-                    stnd_cog1n = cog1p*esp,
-                    stnd_cog5n = cog5p*esp) %>%
-  summarise(stnd_cog0n = sum(stnd_cog0n), 
-            stnd_cog0.25n = sum(stnd_cog0.25n), 
-            stnd_cog1n = sum(stnd_cog1n), 
-            stnd_cog5n = sum(stnd_cog5n)) %>% 
-  mutate (stnd_cog0p = stnd_cog0n/sum(slsr_age$esp), 
-          stnd_cog0.25p = stnd_cog0.25n/sum(slsr_age$esp),
-          stnd_cog1p = stnd_cog1n/sum(slsr_age$esp),
-          stnd_cog5p = stnd_cog5n/sum(slsr_age$esp))
-
-##Crude prevalence rate
-
-#In the current version of dplyr you're using, when specifying a lambda function (i.e., ~), you have to explicitly
-#mention the argument .x or . within the function. This argument represents the column that is being manipulated.
-#this is also valid: #slsr_age %>% summarise(across(c("cog0p", "cog0.25p", "cog1p", "cog5p"), mean))
-
-slsr_age %>% summarise (across(c("cog0p", "cog0.25p", "cog1p", "cog5p"), ~mean(.x)))
-
-#2.3 Calculate 95% intervals based on bootstrapping 
-
-calculate_age_standardized_prevalence <- function(data, indices, variable) {
-  # Subset the data for this bootstrap replicate
-  data_boot <- data[indices, ] 
+slsr_esp <- slsr %>% mutate(age_cat_esp = case_when(
+  age <5 ~ "0-4 years", 
+  age >=5 & age <10 ~ "5-9 years", 
+  age >=10 & age <15 ~ "10-14 years", 
+  age >=15 & age <20 ~ "15-19 years", 
+  age >=20 & age <25 ~ "20-24 years", 
+  age >=25 & age <30  ~ "25-29 years", 
+  age >=30 & age <35 ~ "30-34 years", 
+  age >=35 & age <40 ~ "35-39 years", 
+  age >= 40 & age <45 ~ "40-44 years", 
+  age >= 45 & age <50 ~ "45-49 years", 
+  age >= 50 & age <55 ~ "50-54 years", 
+  age >= 55 & age <60 ~ "55-59 years", 
+  age >= 60 & age <65 ~ "60-64 years", 
+  age >= 65 & age <70 ~ "65-69 years", 
+  age >= 70 & age <75 ~ "70-74 years", 
+  age >= 75 & age <80 ~ "75-79 years", 
+  age >= 80 & age <85 ~ "80-84 years", 
+  age >= 85 & age <90 ~ "85-89 years", 
+  age >= 90 ~ "90plus years"), 
   
-  # Calculate the age-standardized prevalence. This involves calculating the 
-  # product of the prevalence and the standard population in each group, summing 
-  # these products, and then dividing by the sum of the standard population.
-  sum_product <- sum(data_boot[[variable]] * data_boot$pop_stand)
-  sum_pop <- sum(data_boot$pop_stand)
-  age_std_prevalence <- sum_product *100 / sum_pop
-  return(age_std_prevalence)
-}
+  age_cat_esp0.25 = case_when(
+    age+0.25 <5 ~ "0-4 years", 
+    age+0.25 >=5 & age+0.25 <10 ~ "5-9 years", 
+    age+0.25 >=10 & age+0.25 <15 ~ "10-14 years", 
+    age+0.25 >=15 & age+0.25 <20 ~ "15-19 years", 
+    age+0.25 >=20 & age+0.25 <25 ~ "20-24 years", 
+    age+0.25 >=25 & age+0.25 <30  ~ "25-29 years", 
+    age+0.25 >=30 & age+0.25 <35 ~ "30-34 years", 
+    age+0.25 >=35 & age+0.25 <40 ~ "35-39 years", 
+    age+0.25 >= 40 & age+0.25 <45 ~ "40-44 years", 
+    age+0.25 >= 45 & age+0.25 <50 ~ "45-49 years", 
+    age+0.25 >= 50 & age+0.25 <55 ~ "50-54 years", 
+    age+0.25 >= 55 & age+0.25 <60 ~ "55-59 years", 
+    age+0.25 >= 60 & age+0.25 <65 ~ "60-64 years", 
+    age+0.25 >= 65 & age+0.25 <70 ~ "65-69 years", 
+    age+0.25 >= 70 & age+0.25 <75 ~ "70-74 years", 
+    age+0.25 >= 75 & age+0.25 <80 ~ "75-79 years", 
+    age+0.25 >= 80 & age+0.25 <85 ~ "80-84 years", 
+    age+0.25 >= 85 & age+0.25 <90 ~ "85-89 years", 
+    age+0.25 >= 90 ~ "90plus years"), 
+  
+  age_cat_esp1 = case_when(
+    age+1 <5 ~ "0-4 years", 
+    age+1 >=5 & age+1 <10 ~ "5-9 years", 
+    age+1 >=10 & age+1 <15 ~ "10-14 years", 
+    age+1 >=15 & age+1 <20 ~ "15-19 years", 
+    age+1 >=20 & age+1 <25 ~ "20-24 years", 
+    age+1 >=25 & age+1 <30  ~ "25-29 years", 
+    age+1 >=30 & age+1 <35 ~ "30-34 years", 
+    age+1 >=35 & age+1 <40 ~ "35-39 years", 
+    age+1 >= 40 & age+1 <45 ~ "40-44 years", 
+    age+1 >= 45 & age+1 <50 ~ "45-49 years", 
+    age+1 >= 50 & age+1 <55 ~ "50-54 years", 
+    age+1 >= 55 & age+1 <60 ~ "55-59 years", 
+    age+1 >= 60 & age+1 <65 ~ "60-64 years", 
+    age+1 >= 65 & age+1 <70 ~ "65-69 years", 
+    age+1 >= 70 & age+1 <75 ~ "70-74 years", 
+    age+1 >= 75 & age+1 <80 ~ "75-79 years", 
+    age+1 >= 80 & age+1 <85 ~ "80-84 years", 
+    age+1 >= 85 & age+1 <90 ~ "85-89 years", 
+    age+1 >= 90 ~ "90plus years"), 
+  
+  
+  age_cat_esp5 = case_when(
+    age+5 <5 ~ "0-4 years", 
+    age+5 >=5 & age+5 <10 ~ "5-9 years", 
+    age+5 >=10 & age+5 <15 ~ "10-14 years", 
+    age+5 >=15 & age+5 <20 ~ "15-19 years", 
+    age+5 >=20 & age+5 <25 ~ "20-24 years", 
+    age+5 >=25 & age+5 <30  ~ "25-29 years", 
+    age+5 >=30 & age+5 <35 ~ "30-34 years", 
+    age+5 >=35 & age+5 <40 ~ "35-39 years", 
+    age+5 >= 40 & age+5 <45 ~ "40-44 years", 
+    age+5 >= 45 & age+5 <50 ~ "45-49 years", 
+    age+5 >= 50 & age+5 <55 ~ "50-54 years", 
+    age+5 >= 55 & age+5 <60 ~ "55-59 years", 
+    age+5 >= 60 & age+5 <65 ~ "60-64 years", 
+    age+5 >= 65 & age+5 <70 ~ "65-69 years", 
+    age+5 >= 70 & age+5 <75 ~ "70-74 years", 
+    age+5 >= 75 & age+5 <80 ~ "75-79 years", 
+    age+5 >= 80 & age+5 <85 ~ "80-84 years", 
+    age+5 >= 85 & age+5 <90 ~ "85-89 years", 
+    age+5 >= 90 ~ "90plus years"))
+
+slsr_age_0<- slsr_esp %>% group_by(age_cat_esp) %>% summarise (cog0n = sum(cog == 2, na.rm = TRUE), n0 = sum(!is.na(dtint)), cog0p = cog0n/n0)
+slsr_age_0.25 <- slsr_esp %>% group_by(age_cat_esp0.25) %>% summarise (cog0.25n = sum(cog0.25 == 2, na.rm = TRUE), n0.25 = sum(!is.na(dtint0.25)), cog0.25p = cog0.25n/n0.25) %>% rename ("age_cat_esp" = "age_cat_esp0.25")
+slsr_age_1 <- slsr_esp %>% group_by(age_cat_esp1) %>% summarise (cog1n = sum(cog1 == 2, na.rm = TRUE), n1 = sum(!is.na(dtint1)), cog1p = cog1n/n1)%>% rename ("age_cat_esp" = "age_cat_esp1")
+slsr_age_5 <- slsr_esp %>% group_by(age_cat_esp5) %>% summarise (cog5n = sum(cog5 == 2, na.rm = TRUE), n5 = sum(!is.na(dtint5)), cog5p = cog5n/n5) %>% rename ("age_cat_esp" = "age_cat_esp5")
+
+# To merge the above, create a list of data frames
+list_of_dfs <- list(slsr_age_0, slsr_age_0.25, slsr_age_1, slsr_age_5)
+
+# Use reduce to recursively merge the data frames
+slsr_age_esp <- reduce(list_of_dfs, ~full_join(.x, .y, by = "age_cat_esp"))
+
+#Add ESP weights to this
+esp<- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/european_standard_population.csv", header = TRUE)
+esp <- esp %>% rename ("age_cat_esp" = "age", "esp" = "n") %>% mutate (esp_w = esp/sum(esp))
+
+slsr_age_esp <- merge(slsr_age_esp, esp, by = "age_cat_esp", all = TRUE)
+slsr_age_esp[is.na(slsr_age_esp)] <- 0
+
+#2.3 Calculate age-standardised prevalence with bootstrapping intervals 
 
 # Set the number of bootstrap replications
 n_replications <- 10000
-
-# Use the boot() function to perform the bootstrap at different time points 
+indices <- 1:nrow(slsr_age_esp)
 
 #-------------------
-##Initial assessment (SP)
-boot_results <- boot(data = slsr_age, statistic = calculate_age_standardized_prevalence, R = n_replications, variable = "cog0p")
+##Initial assessment 
 
-# Calculate the 95% confidence interval from the bootstrapped results
+#CIs for ESP
+
+calc_standardized_rate <- function(data, indices, cases, total, esp_weights) {
+  # Subset the data based on the indices
+  df <- data[indices, ]
+  
+  df$rate <- df[[cases]] / df[[total]]
+  df$weighted_rate <- df$rate * df[[esp_weights]]
+  
+  return(sum(df$weighted_rate, na.rm = TRUE))
+}
+
+calc_standardized_rate(slsr_age_esp, indices, "cog0n", "n0", "esp_w")
+
+boot_results <- boot(data = slsr_age_esp, 
+                     statistic = calc_standardized_rate, 
+                     R = n_replications,
+                     cases = "cog0n",
+                     total = "n0",
+                     esp_weights = "esp_w")
+
 boot_ci <- boot.ci(boot.out = boot_results, type = "perc")
-
-#Print the age-standardised prevalence
-## Get the row indices for the entire dataset
-indices <- 1:nrow(slsr_age)
-## Calculate and print the age-standardized prevalence
-age_std_prevalence <- calculate_age_standardized_prevalence(slsr_age, indices, "cog0p")
-print(round(age_std_prevalence, 2))
-# Print the confidence interval
 print(boot_ci)
 
 #-------------------
 ###3-month follow-up
+#Calculate 95% CIs for age-standardised rate 
+calc_standardized_rate(slsr_age_esp, indices, "cog0.25n", "n0.25", "esp_w")
 
-boot_results <- boot(data = slsr_age, statistic = calculate_age_standardized_prevalence, R = n_replications, variable = "cog0.25p")
+boot_results <- boot(data = slsr_age_esp, 
+                     statistic = calc_standardized_rate, 
+                     R = n_replications,
+                     cases = "cog0.25n",
+                     total = "n0.25",
+                     esp_weights = "esp_w")
 
-# Calculate the 95% confidence interval from the bootstrapped results
 boot_ci <- boot.ci(boot.out = boot_results, type = "perc")
-
-#Print the age-standardised prevalence
-## Get the row indices for the entire dataset
-indices <- 1:nrow(slsr_age)
-## Calculate and print the age-standardized prevalence
-age_std_prevalence <- calculate_age_standardized_prevalence(slsr_age, indices, "cog0.25p")
-print(round(age_std_prevalence, 2))
-# Print the confidence interval
 print(boot_ci)
 
 #-------------------
 ###1-year follow-up 
+#Calculate 95% CIs for age-standardised rate 
+calc_standardized_rate(slsr_age_esp, indices, "cog1n", "n1", "esp_w")
 
-boot_results <- boot(data = slsr_age, statistic = calculate_age_standardized_prevalence, R = n_replications, variable = "cog1p")
+boot_results <- boot(data = slsr_age_esp, 
+                     statistic = calc_standardized_rate, 
+                     R = n_replications,
+                     cases = "cog1n",
+                     total = "n1",
+                     esp_weights = "esp_w")
 
-# Calculate the 95% confidence interval from the bootstrapped results
 boot_ci <- boot.ci(boot.out = boot_results, type = "perc")
-
-#Print the age-standardised prevalence
-## Get the row indices for the entire dataset
-indices <- 1:nrow(slsr_age)
-## Calculate and print the age-standardized prevalence
-age_std_prevalence <- calculate_age_standardized_prevalence(slsr_age, indices, "cog1p")
-print(round(age_std_prevalence, 2))
-# Print the confidence interval
 print(boot_ci)
 
 
 #-------------------
 ###5-year follow-up
-boot_results <- boot(data = slsr_age, statistic = calculate_age_standardized_prevalence, R = n_replications, variable = "cog5p")
 
-# Calculate the 95% confidence interval from the bootstrapped results
+#Calculate CIs for age-standardised rate 
+calc_standardized_rate(slsr_age_esp, indices, "cog5n", "n5", "esp_w")
+
+boot_results <- boot(data = slsr_age_esp, 
+                     statistic = calc_standardized_rate, 
+                     R = n_replications,
+                     cases = "cog5n",
+                     total = "n5",
+                     esp_weights = "esp_w")
+
 boot_ci <- boot.ci(boot.out = boot_results, type = "perc")
-
-#Print the age-standardised prevalence
-## Get the row indices for the entire dataset
-indices <- 1:nrow(slsr_age)
-## Calculate and print the age-standardized prevalence
-age_std_prevalence <- calculate_age_standardized_prevalence(slsr_age, indices, "cog5p")
-print(round(age_std_prevalence, 2))
-# Print the confidence interval
 print(boot_ci)
 
 ## -------------------------------------------------------------------------------------------------------------------------
@@ -376,7 +394,7 @@ print(paste0("5-year incidence: ", round(mean(boot5$t)*100, 2),
 
 
 ## -------------------------------------------------------------------------------------------------------------------------
-#3. Recovery  
+#4. Recovery  
 
 
 
@@ -418,8 +436,7 @@ print(paste0("5-year recovery: ", round(mean(boot5$t)*100, 2),
 
 
 ## -------------------------------------------------------------------------------------------------------------------------
-
-#Sankey diagram 
+#5. Sankey diagram 
 library(ggsankey)
 library(viridis)
 
@@ -475,8 +492,8 @@ ggsave("sankey_deaths.tiff", units="in", width=5, height=4, dpi=300, compression
 ggsave("sankey_deaths.jpeg", units="in", width=5, height=4, dpi=300)
 
 
-##--------------------------------------------------
-#3. Survival status 
+##----------------------------------------------------------------------------------------------------
+#6. Survival status 
 
 slsr <- slsr %>% mutate (
   surv_time = (dtdodpi - dtstrk)/365.25, 
@@ -516,8 +533,8 @@ ggsurvplot(
     c("No PSCI", "PSCI"),
   break.x.by = 1)
 
-##--------------------------------------------------
-#Multivariate analysis 
+##----------------------------------------------------------------------------------------------------
+#7. Risk factors 
 
 # create a dataframe with only people who have cognitive scores (table1 does not accept NAs in the classifying variable)
 slsr_glm <- slsr %>% 
@@ -527,6 +544,11 @@ slsr_glm <- slsr %>%
   mutate(eth6cat = ifelse(eth6cat == "99", NA, eth6cat)) %>%
   mutate(q3a_ri = ifelse(q3a_ri == "3", NA, q3a_ri)) %>%
   mutate(thromby_ip = ifelse(is.na(thromby_ip) | thromby_ip == "0" | thromby_ip == "3", "1", thromby_ip)) %>%
+  mutate (age_cat = case_when(
+    age < 65 ~ "under 65",
+    age >= 65 & age <75 ~ "65-74", 
+    age >=75 & age < 85 ~ "75-84",
+    age>= 85 ~ "85+")) %>%
   #mutate(thromby_ip = ifelse(is.na(thromby_ip), 1, thromby_ip)) %>% #find out from Hatem what is up with this variable
   mutate (sex = as.factor(sex),
           eth6cat = as.factor(eth6cat), 
@@ -546,6 +568,7 @@ slsr_glm <- slsr %>%
   ) 
 
 #Recode factors:
+slsr_glm$age_cat <- factor(slsr_glm$age_cat, levels = c("under 65","65-74", "75-84", "85+"))
 #Cognitive status: 1=cognitively intact (8-10 AMT and 24+ MMSE) 2=cognitively impaired (0-7 AMT and <24 MMSE)
 slsr_glm$cog0.25 <- recode_factor(slsr_glm$cog0.25, "1" = "Cognitively intact", "2" = "Cognitively impaired")
 #Ethnic category: 1=White 2=Black Carribean 3=Black African 4=Black Other 5=Other 99= Unknown/not stated
@@ -580,7 +603,7 @@ slsr_glm$thromby_ip <- recode_factor(slsr_glm$thromby_ip,  "1" = "No", "2" = "Ye
 
 #Make nice labels for the table: 
 label(slsr_glm$sex)       <- "Sex"
-label(slsr_glm$age)       <- "Age"
+label(slsr_glm$age_cat)       <- "Age"
 label(slsr_glm$eth6cat)       <- "Ethnic category"
 label(slsr_glm$socat)       <- "Socioeconomic category"
 label(slsr_glm$educat)       <- "Educational attainment"
@@ -601,14 +624,14 @@ label(slsr_glm$thromby_ip) <- "Thrombectomy"
 # glm model
 
 glm.fit1 <- glm(cog0.25 ~  
-                  age +  
+                  age_cat +  
                   sex +
                   eth6cat + 
                   socat + 
                   educat + 
-                  mtaet6 +
-                  q3a_ri +
-                  rfpdep, #thrombolysis
+                  rfpdep +
+                  #q3a_ri,
+                  mtaet6, #thrombolysis
                   #thromby_ip, #thrombectomy 
                 data = slsr_glm, family = binomial)
 
@@ -633,7 +656,10 @@ tidy_results <- tidy_results %>%
   mutate (term = case_when(
     #term == "(Intercept)" ~ "Intercept",
     
-    term == "age" ~ "Age",
+    term == "age_cat65-74" ~ "Age 65-74",
+    term == "age_cat75-84" ~ "Age 75-84",
+    term == "age_cat85+" ~ "Age 85+",
+
     term == "sexFemale" ~ "Female sex",
     
     term == "eth6catBlack Carribean" ~ "Black Carribean ethnicity",
@@ -651,13 +677,13 @@ tidy_results <- tidy_results %>%
     term == "mtaet6Other/unknown" ~ "TOAST: Unknown",
     term == "mtaet6Primary intracerebral haemorrhage" ~ "TOAST: Primary ICH",
     term == "mtaet6Subarachnoid haemorrhage" ~ "TOAST: SAH", 
-    term == "q3a_riYes" ~ "Thrombolysis",
+    #term == "q3a_riYes" ~ "Thrombolysis",
     term == "rfpdepYes" ~ "Pre-stroke depression"
   ))
 
 #order variables correctly 
 tidy_results$term <- factor(tidy_results$term, levels = rev(c(
-  "Age", "Female sex", 
+  "Age 65-74", "Age 75-84", "Age 85+", "Female sex", 
   "Black Carribean ethnicity","Black African ethnicity","Black Other ethnicity","Other ethnicity",
   "Manual work", "Primary education", "Secondary education", "Tertiary education", "Pre-stroke depression",
   "TOAST: Cardioembolic stroke", "TOAST: Small vessel occlusion", "TOAST: Unknown", "TOAST: Primary ICH", "TOAST: SAH", 
@@ -683,7 +709,7 @@ forest_rf <- ggplot(tidy_results, aes(x = odds_ratio, y = term, xmin = conf.low,
   geom_vline(xintercept = 1, color = "grey", linetype = "dashed") +
   geom_errorbarh(height = 0.2) +
   geom_point(size = 2) +
-  geom_text(aes(label = significant, x = 1.1 * conf.high), hjust = -1.5) +
+  geom_text(aes(label = significant, x = 1.05 * conf.high), hjust = -0.3) +
   scale_y_discrete(labels = c(age = "Age at Diagnosis", sex = "Gender")) +
   xlab("Odds Ratio (95% CI)") +
   ylab("") +
@@ -700,7 +726,7 @@ dev.off()
 write.csv(tidy_results %>% select (term, odds_ratio, conf.low, conf.high, p.value, significant), "risk_factors.csv")
 
 ##---------------------------------------------------------------------------------------------------------------------------------------------------
-#Mixed effects model 
+#8. Mixed effects model 
 library(lme4)
 library(lmerTest)
 
@@ -759,7 +785,7 @@ coef <- data.frame(coef)
 coef %>% mutate(pval = format.pval(coef$pval, digits=3, eps=0.001))
 
 ##---------------------------------------------------------------------------------------------------------------------------------------------------
-#Predictors of recovery
+#9. Predictors of recovery
 slsr <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/slsr(pre_2020).csv", stringsAsFactors = TRUE)
 
 #1=cognitively intact (8-10 AMT and 24+ MMSE) 2=cognitively impaired (0-7 AMT and <24 MMSE)
