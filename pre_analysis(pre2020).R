@@ -158,7 +158,7 @@ slsr <- slsr %>%
 #why_mtndn
 #1=refused, 2=language barrier, 3=aphasia, 4=too cognitively impaired
 table(slsr$why_mtndn0.25)
-
+sum(!is.na(slsr$why_mtndn0.25))
 ## -------------------------------------------------------------------------------------------------------------------------
 #5. EXPLORE REASONS FOR LOSS-TO-FOLLOW-UP AT 3 MONTHS 
 
@@ -289,5 +289,35 @@ nrow(slsr)
 write.csv(slsr, "/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/slsr(including those who died before 3 months).csv", row.names = FALSE)
 
 
+#--
+#Does transient cognitive impairment increase risk of dementia later? 
+
+slsr_transient <- slsr %>% mutate (
+  transient_ci = case_when(
+  cog == 2 & cog0.25 == 1 & (cog1 ==2 | cog5 == 2) ~ 1, # 1 = transient CI -> later cognitive impairment
+  cog == 2 & cog0.25 == 1 & cog1 == 1 & cog5 == 1 ~ 0, # 0 - transient CI -> fully recovered 
+  cog == 2 & cog0.25 == 1 & is.na(cog1) & cog5 == 1 ~ 0, # 0 - transient CI -> fully recovered 
+  cog == 2 & cog0.25 == 1 & cog1 == 1 & is.na(cog5) ~ 0 # 0 - transient CI -> fully recovered 
+  ), no_transient_ci = case_when(
+    cog == 1 & cog0.25 == 1 & (cog1 ==2 | cog5 == 2) ~ 1, # 1 = no transient CI -> later cognitive impairment
+    cog == 1 & cog0.25 == 1 & cog1 == 1 & cog5 == 1 ~ 0, # 0 - no transient CI -> no later cognitive impairment
+    cog == 1 & cog0.25 == 1 & is.na(cog1) & cog5 == 1 ~ 0, # 0 - no transient CI ->  no later cognitive impairment
+    cog == 1 & cog0.25 == 1 & cog1 == 1 & is.na(cog5) ~ 0 # 0 - no transient CI ->  no later cognitive impairment
+  ))
+  
+  
+  
+
+transient<- rbind(table(slsr_transient$transient_ci), table(slsr_transient$no_transient_ci))
+
+# Name the rows and columns
+rownames(transient) <- c("Transient CI", "No Transient CI")
+colnames(transient) <- c("No Dementia", "Dementia")
+
+# Conduct chi-square test
+test_result <- chisq.test(transient)
+
+# Print the result
+print(test_result)
 
 

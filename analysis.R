@@ -157,6 +157,18 @@ crude_rate <- slsr %>% summarise (cog0n = sum(cog == 2, na.rm = TRUE), n0 = sum(
 write.csv(crude_rate, "crude_rate.csv")
 #note you can also use bootstrapping for the confidence intervals on the crude rate (idk where the code for this has gone)
 
+#sensitivity analysis - including those who died at 3 months 
+#slsr <- read.csv("/Users/Zuzanna_Bien/Desktop/ACF Public Health/Cognitive impairment in stroke/SLSR-CI/SLSR_raw_data/slsr(including those who died before 3 months).csv")
+
+#crude_rate <- slsr %>% summarise (cog0n = sum(cog == 2, na.rm = TRUE), n0 = sum(!is.na(dtint)), cog0p = round(cog0n*100/n0,2),
+                                 # cog0.25n = sum(cog0.25 == 2, na.rm = TRUE), n0.25 = sum(!is.na(dtint0.25)), cog0.25p = round(cog0.25n*100/n0.25,2),
+                                 # cog1n = sum(cog1 == 2, na.rm = TRUE), n1 = sum(!is.na(dtint1)), cog1p = round(cog1n*100/n1,2),
+                                 # cog5n = sum(cog5 == 2, na.rm = TRUE), n5 = sum(!is.na(dtint5)), cog5p = round(cog5n*100/n5,2))
+ 
+
+#write.csv(crude_rate, "crude_rate.csv")
+
+
 #2.2 Prepare the data-frame with the shifting age-categories 
 #NB I've created shifting categories to account for the fact that patients age
 
@@ -503,7 +515,7 @@ slsr <- slsr %>% mutate (
     surv_time < 5 ~ 1  # (dead within 5 years)
   ))
 
-
+table(slsr$surv_status, slsr$cog0.25)
 
 
 #sum(is.na(slsr$surv_time) & slsr$surv_status == 1)  #n = 0 - so everyone who is dead, has a survival time
@@ -576,7 +588,7 @@ slsr_glm$eth6cat <- recode_factor(slsr_glm$eth6cat, "1" = "White", "2" = "Black 
 #Sex: 1=Male 2=Female
 slsr_glm$sex <- recode_factor(slsr_glm$sex, "1" = "Male", "2" = "Female")
 #Social class: 1=Non manual 2=skilled manual 88=Army
-slsr_glm$socat <- recode_factor(slsr_glm$socat, "1" = "Non-manual work", "2" = "Manual work", "88" = "Army") 
+slsr_glm$socat <- recode_factor(slsr_glm$socat, "1" = "Non-manual work", "2" = "Manual work", "88" = "Non-manual work") 
 #Educational attainment: 0=no formal education 1=primary 2=lower secondary 3=upper secondary 4=post secondary non tertiary 5=first stage of tertiary 6=secondary stage of tertiary
 slsr_glm$educat <- recode_factor(slsr_glm$educat, "0" = "Primary or less", "1" = "Primary or less", "2" = "Secondary", "3" = "Secondary", "4" = "Tertiary", "5" = "Tertiary", "6" = "Tertiary") 
 
@@ -593,7 +605,7 @@ slsr_glm$anstrk0.25 <- recode_factor(slsr_glm$anstrk0.25, "1" = "No", "2" = "Yes
 slsr_glm$handed <- recode_factor(slsr_glm$handed, "1" = "Right", "2"= "Left" )
 
 #OCSP 1=TACI 2=PACI 3=POCI 4=LACI 5=Infarct unspecified 6=PICH 7=SAH 8=Unclassified 9=Unknown
-  slsr_glm$subtype <- recode_factor(slsr_glm$subtype, "1" = "TACI", "2" = "PACI", "3" = "POCI", "4" = "LACI", "5" = "Other/unknown", "6" = "Primary intracerebral haemorrhage", "7" = "Subarachnoid haemorrhage", "8" = "Other/unknown", "9" = "Other/unknown")
+slsr_glm$subtype <- recode_factor(slsr_glm$subtype, "1" = "TACI", "2" = "PACI", "3" = "POCI","4" = "LACI", "5" = "Other/unknown", "6" = "Primary intracerebral haemorrhage", "7" = "Subarachnoid haemorrhage", "8" = "Other/unknown", "9" = "Other/unknown")
 #TOAST 6-subtypes 1=LAA 2=CE 3=SVO 4=OTH 5=UND 6=CONC 77=PICH 88=SAH
 slsr_glm$mtaet6 <- recode_factor(slsr_glm$mtaet6, "1" = "Large‐artery atherosclerosis", "2" = "Cardioembolism", "3" = "Small vessel occlusion ", "4" = "Other/unknown", "5" = "Other/unknown", "6" = "Other/unknown", "77" = "Primary intracerebral haemorrhage", "88" = "Subarachnoid haemorrhage")
 #Thrombolysis  1=No, 2=Yes
@@ -623,19 +635,21 @@ label(slsr_glm$thromby_ip) <- "Thrombectomy"
 
 # glm model
 
+#try with OSCP subtypes instead 
+
 glm.fit1 <- glm(cog0.25 ~  
                   age_cat +  
                   sex +
                   eth6cat + 
                   socat + 
                   educat + 
-                  rfpdep +
-                  #q3a_ri,
-                  mtaet6, #thrombolysis
-                  #thromby_ip, #thrombectomy 
+                  rfpdep + #Pre-stroke depression
+                  #mtaet6 + 
+                  subtype, 
                 data = slsr_glm, family = binomial)
 
 summary(glm.fit1)
+
 
 #forest plot 
 #tidy up the results 
@@ -672,11 +686,21 @@ tidy_results <- tidy_results %>%
     term == "educatSecondary" ~ "Secondary education",
     term == "educatTertiary" ~ "Tertiary education",
     
-    term == "mtaet6Cardioembolism" ~ "TOAST: Cardioembolic stroke",
-    term == "mtaet6Small vessel occlusion " ~ "TOAST: Small vessel occlusion",
-    term == "mtaet6Other/unknown" ~ "TOAST: Unknown",
-    term == "mtaet6Primary intracerebral haemorrhage" ~ "TOAST: Primary ICH",
-    term == "mtaet6Subarachnoid haemorrhage" ~ "TOAST: SAH", 
+    #term == "subtypeTACI" ~ "OSCP: TACI",
+    term == "subtypePACI" ~ "OCSP: PACI",
+    term == "subtypePOCI" ~ "OCSP: POCI",
+    term == "subtypeLACI" ~ "OCSP: LACI",
+    term == "subtypeOther/unknown" ~ "OSCP: Other/unknown",
+    term == "subtypePrimary intracerebral haemorrhage" ~ "OCSP: Intracerebal haemorrhage",
+    term == "subtypeSubarachnoid haemorrhage" ~ "OCSP: SAH",
+    
+    
+    
+    #term == "mtaet6Cardioembolism" ~ "TOAST: Cardioembolic stroke",
+    #term == "mtaet6Small vessel occlusion " ~ "TOAST: Small vessel occlusion",
+    #term == "mtaet6Other/unknown" ~ "TOAST: Unknown",
+    #term == "mtaet6Primary intracerebral haemorrhage" ~ "TOAST: Primary ICH",
+    #term == "mtaet6Subarachnoid haemorrhage" ~ "TOAST: SAH", 
     #term == "q3a_riYes" ~ "Thrombolysis",
     term == "rfpdepYes" ~ "Pre-stroke depression"
   ))
@@ -686,9 +710,9 @@ tidy_results$term <- factor(tidy_results$term, levels = rev(c(
   "Age 65-74", "Age 75-84", "Age 85+", "Female sex", 
   "Black Carribean ethnicity","Black African ethnicity","Black Other ethnicity","Other ethnicity",
   "Manual work", "Primary education", "Secondary education", "Tertiary education", "Pre-stroke depression",
-  "TOAST: Cardioembolic stroke", "TOAST: Small vessel occlusion", "TOAST: Unknown", "TOAST: Primary ICH", "TOAST: SAH", 
-  "Thrombolysis")
-))
+  #"TOAST: Cardioembolic stroke", "TOAST: Small vessel occlusion", "TOAST: Unknown", "TOAST: Primary ICH", "TOAST: SAH", 
+  "OCSP: PACI" ,"OCSP: POCI" ,"OCSP: LACI","OSCP: Other/unknown","OCSP: Intracerebal haemorrhage","OCSP: SAH",
+  "Thrombolysis")))
 
 # Log-transformed odds 
 forest_rf_log <- ggplot(tidy_results, aes(x = odds_ratio, y = term, xmin = conf.low, xmax = conf.high)) +
@@ -705,7 +729,7 @@ forest_rf_log <- ggplot(tidy_results, aes(x = odds_ratio, y = term, xmin = conf.
 
 
 # Create forest plot with asterisks for significant results and modified labels
-forest_rf <- ggplot(tidy_results, aes(x = odds_ratio, y = term, xmin = conf.low, xmax = conf.high)) +
+forest_rf1 <- ggplot(tidy_results, aes(x = odds_ratio, y = term, xmin = conf.low, xmax = conf.high)) +
   geom_vline(xintercept = 1, color = "grey", linetype = "dashed") +
   geom_errorbarh(height = 0.2) +
   geom_point(size = 2) +
@@ -715,10 +739,10 @@ forest_rf <- ggplot(tidy_results, aes(x = odds_ratio, y = term, xmin = conf.low,
   ylab("") +
   theme_minimal()
 
-forest_rf
+forest_rf1
 
-png("forest_rf.png", units="cm", width=17.1, height=17.1, res=400)
-forest_rf 
+png("forest_rf1.png", units="cm", width=17.1, height=17.1, res=400)
+forest_rf1 
 dev.off()
 
 
@@ -842,7 +866,7 @@ slsr_recovery$rfpdep <- recode_factor(slsr_recovery$rfpdep, "1" = "No", "2" = "Y
 slsr_recovery$nihss <- recode_factor(slsr_recovery$nihss, "1" = "Mild", "2" = "Moderate", "3" = "Severe")
 
 
-table(slsr_recovery$cog_recov) #353 not recovered, 334 recovered 
+table(slsr_recovery$cog_recov) 
 #view(slsr_recovery %>% select (id, cog, cog0.25, cog1, cog_recov))
 
 #NB consider recoving those with cog = 2, cog0.25 = 1, and cog1 = 2 as not recovered (n = 56) 
@@ -900,6 +924,8 @@ tidy_results2 <- tidy_results2 %>%
     term == "strk_catSubarachnoid haemorrhage"~ "Stroke subtype: Subarachnoid haemorrhage",
     term == "rfpdepYes" ~ "Pre-stroke depression"
   ))
+
+write.csv(tidy_results2, "predictors of recovery.csv")
 
 #order variables correctly 
 tidy_results2$term <- factor(tidy_results2$term, levels = rev(c(
